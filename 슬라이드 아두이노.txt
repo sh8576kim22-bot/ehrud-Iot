@@ -1,0 +1,118 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <TM1638.h>
+
+// 라이브러리 생성자 순서: TM1638(dataPin, clockPin, strobePin)
+TM1638 aaa(D2,D1,D0); 
+
+// SoftAP 설정
+const char* ssid = "김도경";
+const char* password = "12341234";
+
+ESP8266WebServer server(80); 
+
+// 웹페이지 HTML 코드 (PROGMEM)
+const char MAIN_page[] PROGMEM = R"rawliteral(
+<html>
+	  <meta charset='utf8'>
+	<head>
+		<style>
+			#div1{
+				height:20%;
+				background-color:green;
+				display:flex;
+				justify-content:center;
+				align-items:center;
+				font-size:4em;
+				color:lightgreen;
+				//border:30px solid red;
+			}
+			#div2{
+				height:60%;
+				background-color:lightblue;
+				text-align:center;	
+			}
+			#div3{
+				height:15%;
+				background-color:green;
+				text-align:center;
+				font-size:2em;
+				color:lightgreen;
+				//border:30px solid red;
+			}
+			#txt1{
+				width:60%;
+				font-size:3em;
+				background-color:red;
+				color:white;
+				text-align:center;
+			}
+			#sd1{
+				width:60%;
+			}
+		</style>
+		<script>
+			function slider( )
+			{
+				var fndvalue;
+				document.getElementById('txt1').value = document.getElementById('sd1').value;
+       				 fndvalue = document.getElementById('sd1').value;
+
+        				fetch('/?FND=' + fndvalue, {method:'GET'});
+			}
+		</script>
+	</head>
+	
+	<body>
+		<div id = 'div1'>슬라이더 제어</div>
+		<div id = 'div2'>
+			<br><br><br>
+			<input type = 'text' id = 'txt1'>
+			<br><br><br>
+			<br><br><br>
+			<br><br><br>
+			<input type = 'range' id = 'sd1' oninput = 'slider();' min = '0' max = '10000000'>
+		</div>
+		<div id = 'div3'>한국폴리텍대학 <br> 메카트로닉스과 <br> 김도경</div>
+	</body>
+</html>
+)rawliteral";
+
+void handleRoot() {
+  if (server.hasArg("FND")) {
+    String fndVal = server.arg("FND");
+    int fndvalue = fndVal.toInt(); // 0 ~ 255 사이의 정수 변환
+    aaa.setDisplayToDecNumber(fndvalue,0);
+    
+    
+    Serial.print("현재 FND 값: ");
+    Serial.println(fndvalue);
+
+    
+    aaa.setLEDs(fndvalue); 
+    
+    server.send(200, "text/plain", "OK");
+    return;
+  }
+  
+  // 처음 접속할 때만 전체 HTML 페이지 전송
+  server.send(200, "text/html", MAIN_page);
+}
+
+void setup() {
+  Serial.begin(9600);
+  WiFi.softAP(ssid, password);
+  Serial.println();
+  Serial.print("AP IP Address: ");
+  Serial.println(WiFi.softAPIP());
+
+  server.on("/", handleRoot); 
+  server.begin();             
+  
+  // [체크포인트] 부팅 직후 모듈 정상 작동 테스트를 위해 LED 8개를 모두 켭니다.
+  aaa.setLEDs(255); 
+}
+
+void loop() {
+  server.handleClient(); 
+}
